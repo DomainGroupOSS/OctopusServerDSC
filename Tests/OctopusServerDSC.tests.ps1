@@ -1,3 +1,13 @@
+Function Format-KeyError
+{   # cuts down the long path returned in a key error. This is horrible
+    param([string]$e)
+    # get the path
+    $a = $e -split ":"
+    $path = ($a[0] + ":" + $a[1])
+    $path = $path.Replace($pwd.Path, ".")
+    return ($path + ":" + $a[2])
+}
+
 Describe "Repo testing" {
     Context "Checking Repo integrity" {   
          It "Does not include anything that looks like an Octopus API key" {
@@ -41,6 +51,24 @@ Describe "Repo testing" {
                     Write-Warning "`tAWS Secret Key Warning: $outmatch" 
                 }
                 $secretmatch = $null
+            }
+            $ok | Should Be $true 
+        }
+
+        It "Does not contain anything that looks like a hardcoded licence" {
+            $ok = $true
+            $badfiles = @()
+
+            $licenceregex = "\b([A-Za-z0-9/+=]{563})\b"  # long string of Base64. This matches one known licence, but YMMV!
+            gci -recurse -File -Exclude @("*.zip", "*.msi") | % {
+                $licmatch = Select-String -Path $_.FullName -Pattern $licenceregex -CaseSensitive
+                if($keymatch -ne $null)
+                {
+                    $ok = $false
+                    $outmatch = Format-KeyError "$licmatch"
+                    Write-Warning "`tOctopus Licence warning: $outmatch"
+                }
+                $licmatch = $null
             }
             $ok | Should Be $true 
         }
